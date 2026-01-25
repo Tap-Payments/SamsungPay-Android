@@ -14,10 +14,9 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
     //  var publicKeyLive:String = "pk_live_0zHLeUTOXBNEyJ8p6csbK52m"
     var publicKeyLive: String = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
     var amount: Double = 1.0
-    var currency: String = "BHD"
+    var currency: String = "USD"
     var transactionReference: String = ""
     var postUrl: String = ""
-    var secretString = "sk_live_x28QGHEwiVet6yKq07zMOrjU"
     val number3digits: String = String.format("%.3f", amount)
     lateinit var dataTextView: TextView
 
@@ -49,7 +48,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         val stringmsg =
             "x_publickey${publicKeyLive}x_amount${number3digits}x_currency${currency}x_transaction${transactionReference}x_post$postUrl"
         Log.e("stringMessage", stringmsg.toString())
-        val string = Hmac.digest(msg = stringmsg, key = secretString)
+        val string = Hmac.digest(msg = stringmsg, key = "")
         Log.e("encrypted hashString", string.toString())
 
         dataTextView = findViewById(R.id.data)
@@ -241,7 +240,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
 
         SamsungPayConfiguration.configureWithTapSamsungPayDictionaryConfiguration(
             this,
-            findViewById(R.id.benfit_pay),
+            findViewById(R.id.samsung_pay),
             configuration,
             this
         )

@@ -18,7 +18,7 @@
     <com.tap.company.samsungpay_sdk.TapSamsungPay
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/benfit_pay"
+        android:id="@+id/samsung_pay"
         android:layout_gravity="center_horizontal"
         />
 
