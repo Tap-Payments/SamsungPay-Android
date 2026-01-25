@@ -255,6 +255,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
 
     override fun onSamsungPayClick() {
         super.onSamsungPayClick()
+
     }
 
     override fun onSamsungPayChargeCreated(data: String) {
@@ -265,6 +266,8 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
 
     override fun onSamsungPayOrderCreated(data: String) {
         super.onSamsungPayOrderCreated(data)
+        dataTextView.text = "<<<onSamsungPayOrderCreated>>>" + "\n" +
+                data + "\n" + ">>>>>>>>>>>>>>>>>>>>>>>"
     }
 
     override fun onSamsungPayCancel() {

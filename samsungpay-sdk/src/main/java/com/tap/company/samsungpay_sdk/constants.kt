@@ -8,6 +8,7 @@ const val keyValueName = "data"
 const val samsungPayCheckoutUrl = "https://samsungpay-checkout"
 const val beneiftPayIntentUrl = "intent://tbenefituser.page.link"
 
+
 const val authDataPayerKey = "authDataPayer"
 const val waitDelaytime = 4000L
 

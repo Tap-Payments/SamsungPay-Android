@@ -2,6 +2,7 @@ package com.tap.company.samsungpay_sdk
 
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,10 +19,12 @@ import android.view.ViewGroup
 import android.webkit.*
 import android.widget.*
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat.startActivity
 import androidx.core.os.postDelayed
 import company.tap.tapbenefitpay.*
 
 import company.tap.tapbenefitpay.open.web_wrapper.CardWebUrlPrefix
+
 import company.tap.tapbenefitpay.open.web_wrapper.samsungPayCheckoutUrl
 
 import company.tap.tapbenefitpay.open.web_wrapper.keyValueName
@@ -59,6 +62,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     companion object {
         lateinit var cardWebview: WebView
         // lateinit var cardConfiguraton: CardConfiguraton
+        private const val SAMSUNG_PAY_URL_PREFIX: String = "samsungpay"
+        private const val SAMSUNG_APP_STORE_URL: String = "samsungapps://ProductDetail/com.samsung.android.spay"
     }
 
     /**
@@ -92,13 +97,16 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             javaScriptEnabled = true
             domStorageEnabled = true
             cacheMode = WebSettings.LOAD_NO_CACHE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
 
 
         }
         cardWebview.setBackgroundColor(Color.TRANSPARENT)
         //cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
         cardWebview.webViewClient = MyWebViewClient()
-
+       // cardWebview.webChromeClient = WebChromeClient()
 
     }
 
@@ -120,15 +128,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
         callConfigAPI(configuraton)
         //    applyTheme()
-        /* when (configuraton) {
-            CardConfiguraton.MapConfigruation -> {
-                val url  = "${urlWebStarter}${encodeConfigurationMapToUrl(BenefitPayDataConfiguration.configurationsAsHashMap)}"
-             Log.e("url",url.toString())
-                cardWebview.loadUrl(url)
 
-            }
-            else -> {}
-        }*/
     }
 
 
@@ -186,7 +186,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                     //  progressBar.visibility = GONE
                 }
 
-                if (request?.url.toString()
+               if (request?.url.toString()
                         .contains(SamsungPayStatusDelegate.onOrderCreated.name)
                 ) {
                     SamsungPayDataConfiguration.getTapCardStatusListener()
@@ -204,6 +204,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
 
                 }
+
+
                 if (request?.url.toString().contains(SamsungPayStatusDelegate.onCancel.name)) {
                     android.os.Handler(Looper.getMainLooper()).postDelayed(3000) {
                         if (!onSuccessCalled) {
@@ -259,32 +261,24 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                 return true
 
             }
-           // if (request?.url.toString().startsWith("intent://")) {
-            if (request?.url.toString().startsWith("samsungpay://")) {
+            // add below if statement to check if URL is Samsung Pay or Samsung App Store deep link
+            if (request?.url?.toString()?.startsWith(SAMSUNG_PAY_URL_PREFIX, ignoreCase = true) == true ||
+                request?.url?.toString()?.startsWith(SAMSUNG_APP_STORE_URL, ignoreCase = true) == true) {
                 try {
-                    val context: Context = context
-                    val intent: Intent =
-                        Intent.parseUri(request?.url.toString(), Intent.URI_INTENT_SCHEME)
-                    if (intent != null) {
-//                            view.stopLoading()
-                        val packageManager: PackageManager = context.packageManager
-                        val info: ResolveInfo? = packageManager.resolveActivity(
-                            intent,
-                            PackageManager.MATCH_DEFAULT_ONLY
-                        )
-                        if (info != null) {
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            context.startActivity(intent)
-                        } else {
-                            return false
-                        }
-                        return true
-                    }
-                } catch (e: URISyntaxException) {
-                    Log.e("error", "Can't resolve intent://", e)
-
+                    val intent = Intent.parseUri(request.url.toString(), Intent.URI_INTENT_SCHEME)
+                    context.startActivity(intent)
+                } catch (e: ActivityNotFoundException) {
+                    e.printStackTrace()
+                    // Samsung Wallet app is not installed → open Samsung App Store
+                    val installIntent = Intent.parseUri(
+                        "samsungapps://ProductDetail/com.samsung.android.spay",
+                        Intent.URI_INTENT_SCHEME
+                    )
+                    installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(installIntent)
                 }
-                //   progressBar.visibility = GONE
+                // return true will cause that the URL will not be loaded in WebView
+                return true
             }
 
 
@@ -360,6 +354,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             request: WebResourceRequest,
             error: WebResourceError
         ) {
+
+
             Log.e("error code", error.errorCode.toString())
             Log.e("error description ", error.description.toString())
 
@@ -369,6 +365,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         }
 
     }
+
 
     private fun dismissDialog() {
         if (::dialog.isInitialized) {
@@ -472,7 +469,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             put("paymentMethod", "samsungpay")
             put("merchant", JSONObject().apply { put("id", "") })
             put("scope", "charge")
-            put("redirect", "tapredirectionwebsdk://")
+            put("redirect", "tappaybuttonwebsdk://")
             put("customer", JSONObject().apply {
                 put("name", JSONArray().apply {
                     put(JSONObject().apply {
@@ -508,9 +505,10 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             })
             put("operator", JSONObject().apply {
                 put("hashString", "")
-                put("publicKey", "pk_live_3zIsCFeStGLv8DNd9m054bYc")
+                put("publicKey", "pk_test_Vlk842B1EA7tDN5QbrfGjYzh")
             })
             put("platform", "mobile")
+            put("debug", true)
 
             // Add your custom headers inside JSON body
             put("headers", JSONObject().apply {
@@ -529,18 +527,18 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         val request = Request.Builder()
             .url(baseURL)
             .post(body)
-            .addHeader("sec-ch-ua-platform", "\"macOS\"")
-            .addHeader("Referer", "https://demo.dev.tap.company/")
-            .addHeader(
+           // .addHeader("sec-ch-ua-platform", "\"macOS\"")
+           // .addHeader("Referer", "https://demo.dev.tap.company/")
+           /* .addHeader(
                 "User-Agent",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-            )
-            .addHeader(
+            )*/
+          /*  .addHeader(
                 "sec-ch-ua",
                 "\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""
-            )
+            )*/
             .addHeader("content-type", "application/json")
-            .addHeader("sec-ch-ua-mobile", "?0")
+           // .addHeader("sec-ch-ua-mobile", "?0")
             .build()
 
         client.newCall(request).enqueue(object : Callback {
