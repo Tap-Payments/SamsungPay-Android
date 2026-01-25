@@ -62,13 +62,15 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         /**
          * operator
          */
-        val publicKey = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
+        val publicKey = "pk_test_Vlk842B1EA7tDN5QbrfGjYzh"
         //  val publicKey = intent.getStringExtra("publicKey")
         val hashStringKey = intent.getStringExtra("hashStringKey")
-        val scopeKey = intent.getStringExtra("scopeKey")
+        val scopeKey = "charge"
         val operator = HashMap<String, Any>()
         operator.put("publicKey", publicKey.toString())
-        operator.put("hashString", hashStringKey.toString())
+        //operator.put("hashString", hashStringKey.toString())
+        operator.put("hashString", "")
+
         Log.e("orderData", "pbulc" + publicKey.toString() + " \nhash" + hashStringKey.toString())
 
         /**
@@ -91,11 +93,11 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          */
         val order = HashMap<String, Any>()
         order.put("id", ordrId ?: "")
-        order.put("amount", if (orderAmount?.isEmpty() == true) "1" else orderAmount.toString())
-        order.put("currency", selectedCurrency)
-        order.put("description", orderDescription ?: "")
-        order.put("reference", orderRefrence ?: "")
-        order.put("metadata", metada)
+        order.put("amount",1)
+        order.put("currency", "USD")
+       // order.put("description", orderDescription ?: "")
+       // order.put("reference", orderRefrence ?: "")
+        //order.put("metadata", metada)
         Log.e(
             "orderData",
             "id" + ordrId.toString() + "  \n dest" + orderDescription.toString() + " \n orderamount " + orderAmount.toString() + "  \n orderRef" + orderRefrence.toString() + "  \n currency " + selectedCurrency.toString()
@@ -119,7 +121,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          * phone
          */
         val phone = java.util.HashMap<String, Any>()
-        phone.put("countryCode", intent.getStringExtra("editPhoneCodeKey") ?: "+965")
+        phone.put("countryCode", intent.getStringExtra("editPhoneCodeKey") ?: "965")
         phone.put("number", intent.getStringExtra("editPhoneNoKey") ?: "6617090")
 
 
@@ -135,11 +137,14 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          * interface
          */
 
-        val selectedLanguage: String? = intent.getStringExtra("selectedlangKey")
+       // val selectedLanguage: String? = intent.getStringExtra("selectedlangKey")
+        val selectedLanguage: String? ="en"
 
-        val selectedCardEdge = intent.getStringExtra("selectedcardedgeKey")
+      //  val selectedCardEdge = intent.getStringExtra("selectedcardedgeKey")
+        val selectedCardEdge = "curved"
 
-        val paymentMethod = intent.getStringExtra("paymentMethodKey")
+      //  val paymentMethod = intent.getStringExtra("paymentMethodKey")
+        val paymentMethod ="samsungpay"
 
 
         Log.e(
@@ -149,7 +154,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         val interfacee = HashMap<String, Any>()
         interfacee.put("locale", selectedLanguage ?: "en")
         //  interfacee.put("theme",selectedTheme ?: "light")
-        interfacee.put("edges", selectedCardEdge ?: "circular")
+        interfacee.put("edges", selectedCardEdge ?: "curved")
 
 
         val post = HashMap<String, Any>()
@@ -172,14 +177,18 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          */
         val source = HashMap<String, Any>()
         source.put("id", "")
-        transaction.put(
+     /*   transaction.put(
             "amount",
             if (orderAmount?.isEmpty() == true) "1" else orderAmount.toString()
+        )*/
+        transaction.put(
+            "amount",
+            1
         )
         transaction.put("currency", "USD")
-        transaction.put(
+       /* transaction.put(
             "autoDismiss",
-            "false")
+            "false")*/
         ///can be true/ false
 
 
@@ -210,24 +219,24 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         val customer = HashMap<String, Any>()
         customer.put("id", "")
         customer.put("contact", contact)
-        customer.put("names", listOf(name))
+        customer.put("name", listOf(name))
 
 
 
 
-        configuration.put("paymentMethod", paymentMethod ?: "samsungpay")
+        configuration.put("paymentMethod", "samsungpay")
         configuration.put("merchant", merchant)
-        configuration.put("scope", scopeKey.toString())
-        configuration.put("redirect", "tapredirectionwebsdk://") // TODO what will be in this
+        configuration.put("scope","charge")
+        configuration.put("redirect", "tappaybuttonwebsdk://") // TODO what will be in this
         configuration.put("customer", customer)
         configuration.put("interface", interfacee)
         configuration.put("reference", reference)
         configuration.put("metadata", "")
         configuration.put("post", post)
-        configuration.put("transaction", transaction)
+        configuration.put("order", order)
         configuration.put("operator", operator)
-
-
+        configuration.put("platform", "mobile")
+        configuration.put("debug", true)
 
 
         SamsungPayConfiguration.configureWithTapSamsungPayDictionaryConfiguration(

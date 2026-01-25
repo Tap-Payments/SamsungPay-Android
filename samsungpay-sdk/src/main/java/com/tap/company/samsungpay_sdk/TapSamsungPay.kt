@@ -123,7 +123,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             else -> null
         } ?: false
 
-        configuraton["autoDissmess"] = autoDismiss
+       // configuraton["autoDissmess"] = autoDismiss
 
 
         callConfigAPI(configuraton)
@@ -465,7 +465,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             .build()
 
 // Original JSON object
-        val jsonObject = JSONObject().apply {
+      /*  val jsonObject = JSONObject().apply {
             put("paymentMethod", "samsungpay")
             put("merchant", JSONObject().apply { put("id", "") })
             put("scope", "charge")
@@ -520,10 +520,29 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                     )
                 )
             })
+        }*/
+
+        // ✅ Convert HashMap → JSONObject dynamically
+        val jsonObject = JSONObject(configuraton as Map<*, *>)
+
+        // ✅ Inject ONLY headers section
+        val headersObject = JSONObject().apply {
+            put("application", NetworkApp.getApplicationInfo())
+            put(
+                "mdn",
+                CryptoUtil.encryptJsonString(
+                    "tap.BenefitPayExampleApp",
+                    context.resources.getString(R.string.enryptkeyTest)
+                )
+            )
         }
+
+        // ✅ Add / override headers in JSON
+        jsonObject.put("headers", headersObject)
 
         val body = jsonObject.toString().toRequestBody("application/json".toMediaTypeOrNull())
 
+        println("body in >>"+jsonObject)
         val request = Request.Builder()
             .url(baseURL)
             .post(body)
