@@ -522,6 +522,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             })
         }*/
 
+
         // ✅ Convert HashMap → JSONObject dynamically
         val jsonObject = JSONObject(configuraton as Map<*, *>)
 
