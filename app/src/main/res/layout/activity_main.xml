@@ -32,6 +32,13 @@
         android:text=""/>
 
 
-
+    <!--<TextView
+        android:id="@+id/logTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:padding="8dp"
+        android:text="6456767"
+        android:scrollbars="vertical" />-->
 
 </LinearLayout>

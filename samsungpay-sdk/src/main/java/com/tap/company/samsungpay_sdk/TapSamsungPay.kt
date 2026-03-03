@@ -197,7 +197,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                 }
                 if (request?.url.toString().contains(SamsungPayStatusDelegate.onClick.name)) {
                     // progressBar.visibility = VISIBLE
-                    isSamsungPayUrlIntercepted = false
+                  //  isSamsungPayUrlIntercepted = false
                     pair = Pair("", false)
                     SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayClick()
                     onSuccessCalled = false

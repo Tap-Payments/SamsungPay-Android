@@ -6,19 +6,25 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.tap.company.samsungpay_sdk.SamsungPayConfiguration
 import com.tap.company.samsungpay_sdk.TapSamsungPayStatusDelegate
+import java.io.BufferedReader
+import java.io.IOException
+import java.io.InputStreamReader
 import java.util.Formatter
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
+
 class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
     //  var publicKeyLive:String = "pk_live_0zHLeUTOXBNEyJ8p6csbK52m"
     var publicKeyLive: String = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
-    var amount: Double = 1.0
-    var currency: String = "USD"
+    var amount: Double = 0.1
+    var currency: String = "KWD"
     var transactionReference: String = ""
     var postUrl: String = ""
+    var secretString = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
     val number3digits: String = String.format("%.3f", amount)
     lateinit var dataTextView: TextView
+    lateinit var logTextView: TextView
 
     object Hmac {
         fun digest(
@@ -48,10 +54,29 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         val stringmsg =
             "x_publickey${publicKeyLive}x_amount${number3digits}x_currency${currency}x_transaction${transactionReference}x_post$postUrl"
         Log.e("stringMessage", stringmsg.toString())
-        val string = Hmac.digest(msg = stringmsg, key = "")
+        val string = Hmac.digest(msg = stringmsg, key = publicKeyLive)
         Log.e("encrypted hashString", string.toString())
 
         dataTextView = findViewById(R.id.data)
+       // logTextView = findViewById(R.id.logTextView)
+       /* try {
+            val process = Runtime.getRuntime().exec("logcat -d")
+
+            val bufferedReader = BufferedReader(
+                InputStreamReader(process.inputStream)
+            )
+
+            val log = StringBuilder()
+            var line: String?
+
+            while ((bufferedReader.readLine().also { line = it }) != null) {
+                log.append(line).append("\n")
+            }
+
+            logTextView.text = log.toString()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }*/
     }
 
 
@@ -61,7 +86,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         /**
          * operator
          */
-        val publicKey = "pk_test_Vlk842B1EA7tDN5QbrfGjYzh"
+        val publicKey = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
         //  val publicKey = intent.getStringExtra("publicKey")
         val hashStringKey = intent.getStringExtra("hashStringKey")
         val scopeKey = "charge"
@@ -92,8 +117,8 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          */
         val order = HashMap<String, Any>()
         order.put("id", ordrId ?: "")
-        order.put("amount",1)
-        order.put("currency", "USD")
+        order.put("amount",0.1)
+        order.put("currency", "KWD")
        // order.put("description", orderDescription ?: "")
        // order.put("reference", orderRefrence ?: "")
         //order.put("metadata", metada)
