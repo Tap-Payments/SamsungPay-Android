@@ -2,9 +2,9 @@ plugins {
     id 'com.android.library'
     id 'kotlin-android'
     id 'kotlin-parcelize'
-
+    id 'maven-publish'
 }
-
+group = 'com.github.Tap-Payments'
 android {
     namespace 'com.tap.company.samsungpay_sdk'
     compileSdk 36
@@ -51,4 +51,47 @@ dependencies {
     api 'com.github.Tap-Payments:CommonDataModelsWeb-Andriod:0.0.13'
     implementation 'androidx.lifecycle:lifecycle-process:2.6.2'
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
+}
+
+task releaseJavadoc(type: Jar) {
+    archiveClassifier.set('javadoc')
+    from android.sourceSets.main.java.srcDirs
+    from android.sourceSets.main.kotlin.srcDirs
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create("release", MavenPublication) {
+                artifact("$buildDir/outputs/aar/${project.name}-release.aar") {
+                    builtBy tasks.named("assembleRelease")
+                }
+
+                artifact(tasks.named("releaseSourcesJar"))
+                artifact(tasks.named("releaseJavadoc"))
+
+                groupId = "com.github.Tap-Payments"
+                artifactId = "SamsungPay-Android"
+                version = "0.0.1"
+
+                pom.withXml {
+                    def dependenciesNode = asNode().appendNode('dependencies')
+                    configurations.api.allDependencies.each { dep ->
+                        def depNode = dependenciesNode.appendNode('dependency')
+                        depNode.appendNode('groupId', dep.group)
+                        depNode.appendNode('artifactId', dep.name)
+                        depNode.appendNode('version', dep.version)
+                        depNode.appendNode('scope', 'compile')
+                    }
+                }
+            }
+        }
+    }
+
+
+    // ✅ Ensure metadata waits for sources/javadoc
+    tasks.named("generateMetadataFileForReleasePublication") {
+        dependsOn(tasks.named("releaseSourcesJar"))
+        dependsOn(tasks.named("releaseJavadoc"))
+    }
 }
