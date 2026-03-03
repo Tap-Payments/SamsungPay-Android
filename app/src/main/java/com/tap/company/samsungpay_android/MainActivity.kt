@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
 
 
 class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
-    //  var publicKeyLive:String = "pk_live_0zHLeUTOXBNEyJ8p6csbK52m"
+
     var publicKeyLive: String = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
     var amount: Double = 0.1
     var currency: String = "KWD"
@@ -58,25 +58,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         Log.e("encrypted hashString", string.toString())
 
         dataTextView = findViewById(R.id.data)
-       // logTextView = findViewById(R.id.logTextView)
-       /* try {
-            val process = Runtime.getRuntime().exec("logcat -d")
 
-            val bufferedReader = BufferedReader(
-                InputStreamReader(process.inputStream)
-            )
-
-            val log = StringBuilder()
-            var line: String?
-
-            while ((bufferedReader.readLine().also { line = it }) != null) {
-                log.append(line).append("\n")
-            }
-
-            logTextView.text = log.toString()
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }*/
     }
 
 
@@ -161,11 +143,11 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
          * interface
          */
 
-       // val selectedLanguage: String? = intent.getStringExtra("selectedlangKey")
-        val selectedLanguage: String? ="en"
+        val selectedLanguage: String? = intent.getStringExtra("selectedlangKey")
 
-      //  val selectedCardEdge = intent.getStringExtra("selectedcardedgeKey")
-        val selectedCardEdge = "curved"
+
+        val selectedCardEdge = intent.getStringExtra("selectedcardedgeKey")
+
 
       //  val paymentMethod = intent.getStringExtra("paymentMethodKey")
         val paymentMethod ="samsungpay"
@@ -209,7 +191,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
             "amount",
             1
         )
-        transaction.put("currency", "USD")
+        transaction.put("currency", "KWD")
        /* transaction.put(
             "autoDismiss",
             "false")*/
@@ -250,7 +232,7 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
 
         configuration.put("paymentMethod", "samsungpay")
         configuration.put("merchant", merchant)
-        configuration.put("scope","charge")
+        configuration.put("scope", intent.getStringExtra("scopeKey") ?: "charge")
         configuration.put("redirect", "tappaybuttonwebsdk://") // TODO what will be in this
         configuration.put("customer", customer)
         configuration.put("interface", interfacee)
