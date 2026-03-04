@@ -50,8 +50,7 @@ In your app-level `build.gradle`:
 ```gradle
 dependencies {
     implementation 'com.github.Tap-Payments:SamsungPay-Android:{latest-version}'
-    implementation 'com.squareup.okhttp3:okhttp:4.x.x'
-    implementation 'com.squareup.okhttp3:logging-interceptor:4.x.x'
+   
 }
 ```
 

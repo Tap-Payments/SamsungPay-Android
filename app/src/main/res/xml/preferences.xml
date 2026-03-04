@@ -217,7 +217,7 @@ app:isPreferenceVisible="false"
         <DropDownPreference
             app:key="selectedcardedgeKey"
             app:title="Card Edges"
-            app:isPreferenceVisible="false"
+            app:isPreferenceVisible="true"
             app:entries="@array/Edges"
             app:entryValues="@array/Edges"
             app:defaultValue="1"
