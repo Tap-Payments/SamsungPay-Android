@@ -8,6 +8,32 @@ The Samsung Pay Android SDK enables you to process Samsung Pay transactions dire
 
 ---
 
+## 🎥 Demo Video - How Samsung Pay Works
+
+### YouTube Video Demo
+
+Click the video below to see Samsung Pay integration in action:
+
+[![Samsung Pay Android Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+
+**Demo Flow:**
+1. 📱 App initializes with Samsung Pay button
+2. 👆 User clicks the payment button
+3. 💳 Payment dialog appears
+4. ⏳ Payment is being processed
+5. ✅ Transaction completes successfully
+6. 📊 Success response is displayed
+
+
+
+### Alternative: GIF Demo
+
+```markdown
+[![Samsung Pay Android Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+```
+
+---
+
 ## Table of Contents
 
 1. [Requirements](#requirements)
@@ -539,4 +565,3 @@ This integration guide and the Samsung Pay Android SDK are provided by Tap Payme
 ---
 
 **Last Updated**: March 4, 2026
-
