@@ -125,10 +125,29 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
        // configuraton["autoDissmess"] = autoDismiss
 
+        // Extract public key from configuration
+        val publicKey = getPublicKeyFromConfiguration(configuraton)
 
-        callConfigAPI(configuraton)
+        // Determine if test or production environment based on public key
+        val isTestMode = publicKey?.startsWith("pk_test_") ?: false
+
+        callConfigAPI(configuraton, isTestMode)
         //    applyTheme()
 
+    }
+
+    /**
+     * Extracts the public key from the configuration HashMap
+     * Searches through operator section to find the publicKey
+     */
+    private fun getPublicKeyFromConfiguration(configuraton: java.util.HashMap<String, Any>): String? {
+        return try {
+            val operator = configuraton["operator"] as? Map<String, Any>
+            operator?.get("publicKey") as? String
+        } catch (e: Exception) {
+            Log.e("PublicKeyExtraction", "Error extracting public key: ${e.message}")
+            null
+        }
     }
 
 
@@ -455,7 +474,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
     }*/
     @SuppressLint("RestrictedApi")
-    private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>) {
+    private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>, isTestMode: Boolean = true) {
         val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
 
         val client = OkHttpClient.Builder()
@@ -464,76 +483,26 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             })
             .build()
 
-// Original JSON object
-      /*  val jsonObject = JSONObject().apply {
-            put("paymentMethod", "samsungpay")
-            put("merchant", JSONObject().apply { put("id", "") })
-            put("scope", "charge")
-            put("redirect", "tappaybuttonwebsdk://")
-            put("customer", JSONObject().apply {
-                put("name", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("middle", "Middle")
-                        put("last", "Payments")
-                        put("lang", "en")
-                        put("first", "Tap")
-                    })
-                })
-                put("contact", JSONObject().apply {
-                    put("phone", JSONObject().apply {
-                        put("number", "66178990")
-                        put("countryCode", "965")
-                    })
-                    put("email", "email@email.com")
-                })
-                put("id", "")
-            })
-            put("interface", JSONObject().apply {
-                put("edges", "curved")
-                put("locale", "en")
-            })
-            put("reference", JSONObject().apply {
-                put("transaction", "")
-                put("order", "")
-            })
-            put("metadata", "")
-            put("post", JSONObject().apply { put("url", "") })
-            put("order", JSONObject().apply {
-                put("id", "")
-                put("amount", 20)
-                put("currency", "USD")
-            })
-            put("operator", JSONObject().apply {
-                put("hashString", "")
-                put("publicKey", "pk_test_Vlk842B1EA7tDN5QbrfGjYzh")
-            })
-            put("platform", "mobile")
-            put("debug", true)
-
-            // Add your custom headers inside JSON body
-            put("headers", JSONObject().apply {
-                put("application", NetworkApp.getApplicationInfo())
-                put(
-                    "mdn", CryptoUtil.encryptJsonString(
-                        "tap.BenefitPayExampleApp",
-                       context.resources.getString(R.string.enryptkeyTest)
-                    )
-                )
-            })
-        }*/
 
 
         // ✅ Convert HashMap → JSONObject dynamically
         val jsonObject = JSONObject(configuraton as Map<*, *>)
 
-        // ✅ Inject ONLY headers section
+        // ✅ Select encryption key based on test/prod mode
+        val encryptionKey = if (isTestMode) {
+            context.resources.getString(R.string.enryptkeyTest)
+        } else {
+            context.resources.getString(R.string.enryptkeyProduction)
+        }
+
+        // ✅ Inject ONLY headers section with conditional encryption
         val headersObject = JSONObject().apply {
             put("application", NetworkApp.getApplicationInfo())
             put(
                 "mdn",
                 CryptoUtil.encryptJsonString(
                     "tap.BenefitPayExampleApp",
-                    context.resources.getString(R.string.enryptkeyTest)
+                    encryptionKey
                 )
             )
         }
@@ -547,18 +516,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         val request = Request.Builder()
             .url(baseURL)
             .post(body)
-           // .addHeader("sec-ch-ua-platform", "\"macOS\"")
-           // .addHeader("Referer", "https://demo.dev.tap.company/")
-           /* .addHeader(
-                "User-Agent",
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-            )*/
-          /*  .addHeader(
-                "sec-ch-ua",
-                "\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""
-            )*/
             .addHeader("content-type", "application/json")
-           // .addHeader("sec-ch-ua-mobile", "?0")
             .build()
 
         client.newCall(request).enqueue(object : Callback {

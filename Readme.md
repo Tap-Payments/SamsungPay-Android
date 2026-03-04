@@ -83,12 +83,12 @@ class MainActivity : AppCompatActivity(), TapSamsungPayStatusDelegate {
 Set up the necessary configuration variables:
 
 ```kotlin
-var publicKeyLive: String = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
+var publicKeyLive: String = "pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXX"
 var amount: Double = 0.1
 var currency: String = "KWD"
 var transactionReference: String = ""
 var postUrl: String = ""
-var secretString = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
+var secretString = "pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXX"
 ```
 
 ### 3. Generate HMAC Hash String
@@ -179,7 +179,7 @@ Create a comprehensive configuration hashmap with all required parameters:
 fun configureSdk() {
     // Operator Configuration
     val operator = HashMap<String, Any>()
-    operator.put("publicKey", "pk_live_3zIsCFeStGLv8DNd9m054bYc")
+    operator.put("publicKey", "pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXX")
     operator.put("hashString", "")
     
     // Order Configuration
@@ -317,7 +317,7 @@ override fun onSamsungPayError(error: String) {
 
 | Parameter | Type | Description | Example |
 |-----------|------|-------------|---------|
-| **operator.publicKey** | String | Your merchant public key | `pk_live_3zIsCFeStGLv8DNd9m054bYc` |
+| **operator.publicKey** | String | Your merchant public key | `pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXX` |
 | **operator.hashString** | String | HMAC-SHA256 hash for validation | Generated from Hmac.digest() |
 | **order.id** | String | Unique order identifier | `order_123` |
 | **order.amount** | Double | Transaction amount | `0.1` |

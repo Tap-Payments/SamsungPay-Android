@@ -51,7 +51,7 @@ class SamsungPayConfiguration {
                     publickKey.toString()
                 )
 
-                DataConfiguration.addTapBenefitPayStatusDelegate(tapBenefitPayStatusDelegate)
+                DataConfiguration.addTapSamsungPayStatusDelegate(tapBenefitPayStatusDelegate)
                 tapCardInputViewWeb?.init(CardConfiguraton.MapConfigruation)
 
             }*/
@@ -199,7 +199,7 @@ class SamsungPayConfiguration {
                     publickKey.toString()
                 )
                 tapMapConfiguration.put("platform","mobile")
-                SamsungPayDataConfiguration.addTapBenefitPayStatusDelegate(tapSamsungPayStatusDelegate)
+                SamsungPayDataConfiguration.addTapSamsungPayStatusDelegate(tapSamsungPayStatusDelegate)
                 //tapCardInputViewWeb?.init(CardConfiguraton.MapConfigruation)
                 tapCardInputViewWeb?.init(tapMapConfiguration)
 

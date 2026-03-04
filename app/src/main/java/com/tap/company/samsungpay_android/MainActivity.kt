@@ -68,8 +68,8 @@ class MainActivity : AppCompatActivity() , TapSamsungPayStatusDelegate {
         /**
          * operator
          */
-        val publicKey = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
-        //  val publicKey = intent.getStringExtra("publicKey")
+      //  val publicKey = "pk_live_3zIsCFeStGLv8DNd9m054bYc"
+          val publicKey = intent.getStringExtra("publicKey")
         val hashStringKey = intent.getStringExtra("hashStringKey")
         val scopeKey = "charge"
         val operator = HashMap<String, Any>()
