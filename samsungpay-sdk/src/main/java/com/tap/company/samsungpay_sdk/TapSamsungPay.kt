@@ -475,7 +475,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     }*/
     @SuppressLint("RestrictedApi")
     private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>, isTestMode: Boolean = true) {
-        val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
+     //   val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
+        val baseURL = "https://mw-sdk.tap.company/v2/button/config"
 
         val client = OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {
