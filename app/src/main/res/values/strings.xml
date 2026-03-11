@@ -4,7 +4,8 @@
     <string-array name="ScopeList">
         <item>charge</item>
         <item>authorize</item>
-
+        <item>taptoken</item>
+        <item>samsungpaytoken</item>
     </string-array>
 
 
