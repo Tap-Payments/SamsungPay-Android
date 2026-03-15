@@ -407,9 +407,10 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             samsungCheckoutStarted = false
             SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
             Log.e("SamsungPay", "Sheet was closed/canceled")
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+
+          /*  val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             launchIntent?.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            context.startActivity(launchIntent)
+            context.startActivity(launchIntent)*/
         }
 
     }
