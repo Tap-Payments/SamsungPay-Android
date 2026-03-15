@@ -23,11 +23,34 @@
         android:layout_gravity="center_horizontal"
         />
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:id="@+id/button1"
+        android:text="Button1"
+        android:layout_gravity="center_horizontal"
+        />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:id="@+id/button2"
+        android:text="Button2"
+        android:layout_gravity="center_horizontal"
+        />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/button3"
+        android:text="Button3"
+        android:layout_gravity="center_horizontal"
+        />
 
 
     <TextView
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="30dp"
         android:id="@+id/data"
         android:layout_gravity="center_horizontal"
         android:text=""/>

@@ -7,30 +7,24 @@ import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import androidx.annotation.RequiresApi
-import androidx.core.os.postDelayed
 import company.tap.tapbenefitpay.getQueryParameterFromUri
 import company.tap.tapbenefitpay.open.web_wrapper.CardWebUrlPrefix
 import company.tap.tapbenefitpay.open.web_wrapper.keyValueName
-import company.tap.tapbenefitpay.open.web_wrapper.samsungPayCheckoutUrl
 import company.tap.tapnetworkkit.connection.NetworkApp
 import company.tap.tapnetworkkit.utils.CryptoUtil
 import okhttp3.Call
@@ -247,7 +241,6 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                         }
 
                         url.contains(SamsungPayStatusDelegate.onCancel.name) -> {
-
                             Handler(Looper.getMainLooper()).postDelayed({
                                 if (!onSuccessCalled) {
                                     SamsungPayDataConfiguration.getTapCardStatusListener()
@@ -409,7 +402,15 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         iSAppInForeground = true
         Log.e("applifeCycle", "onEnterForeground")
         //  closePayment()
-
+        if (!onSuccessCalled) {
+            // Sheet was likely canceled
+            samsungCheckoutStarted = false
+            SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
+            Log.e("SamsungPay", "Sheet was closed/canceled")
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            launchIntent?.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            context.startActivity(launchIntent)
+        }
 
     }
 
@@ -433,8 +434,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
     @SuppressLint("RestrictedApi")
     private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>, isTestMode: Boolean = true) {
-     //   val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
-        val baseURL = "https://mw-sdk.tap.company/v2/button/config"
+       val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
+       // val baseURL = "https://mw-sdk.tap.company/v2/button/config"
 
         val client = OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {
