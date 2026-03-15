@@ -1,12 +1,12 @@
 package com.tap.company.samsungpay_sdk
 
+//import company.tap.tapuilibrary.themekit.ThemeManager
+//import company.tap.tapuilibrary.uikit.atoms.*
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.os.Build
 import android.os.Handler
@@ -15,19 +15,22 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
-import android.webkit.*
-import android.widget.*
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.LinearLayout
+import android.widget.ProgressBar
 import androidx.annotation.RequiresApi
-import androidx.core.content.ContextCompat.startActivity
 import androidx.core.os.postDelayed
-import company.tap.tapbenefitpay.*
-
+import company.tap.tapbenefitpay.getQueryParameterFromUri
 import company.tap.tapbenefitpay.open.web_wrapper.CardWebUrlPrefix
-
-import company.tap.tapbenefitpay.open.web_wrapper.samsungPayCheckoutUrl
-
 import company.tap.tapbenefitpay.open.web_wrapper.keyValueName
+import company.tap.tapbenefitpay.open.web_wrapper.samsungPayCheckoutUrl
 import company.tap.tapnetworkkit.connection.NetworkApp
 import company.tap.tapnetworkkit.utils.CryptoUtil
 import okhttp3.Call
@@ -38,12 +41,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
-//import company.tap.tapuilibrary.themekit.ThemeManager
-//import company.tap.tapuilibrary.uikit.atoms.*
-import java.net.URISyntaxException
 
 
 @SuppressLint("ViewConstructor")
@@ -58,7 +57,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     var onSuccessCalled = false
     lateinit var urlToBeloaded: String
     lateinit var cardConfiguraton: java.util.HashMap<String, Any>
-
+    private var samsungCheckoutStarted = false
+    private var tapUrlLoaded = false
     companion object {
         lateinit var cardWebview: WebView
         // lateinit var cardConfiguraton: CardConfiguraton
@@ -96,14 +96,12 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         with(cardWebview.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
-            cacheMode = WebSettings.LOAD_NO_CACHE
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            }
+           // cacheMode = WebSettings.LOAD_NO_CACHE
+           // mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
 
         }
-        cardWebview.setBackgroundColor(Color.TRANSPARENT)
+        //cardWebview.setBackgroundColor(Color.TRANSPARENT)
         //cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
         cardWebview.webViewClient = MyWebViewClient()
        // cardWebview.webChromeClient = WebChromeClient()
@@ -181,114 +179,25 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             request: WebResourceRequest?
         ): Boolean {
 
-
+            val url = request?.url?.toString() ?: return false
+            Log.e("webview-url", url)
             /**
-             * main checker if url start with "tapCardWebSDK://"
+             * 3️⃣ Samsung Wallet / App Store deep link
              */
+            if (url.startsWith(SAMSUNG_PAY_URL_PREFIX, true) ||
+                url.startsWith(SAMSUNG_APP_STORE_URL, true)) {
 
-            if (request?.url.toString().startsWith(CardWebUrlPrefix, ignoreCase = true)) {
-                Log.e("url", request?.url.toString())
-                /**
-                 * listen for states of cardWebStatus of onReady , onValidInput .. etc
-                 */
-                if (request?.url.toString().contains(SamsungPayStatusDelegate.onReady.name)) {
-                    SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayReady()
-                    //  progressBar.visibility = GONE
-                }
-                if (request?.url.toString()
-                        .contains(SamsungPayStatusDelegate.onChargeCreated.name)
-                ) {
-                    SamsungPayDataConfiguration.getTapCardStatusListener()
-                        ?.onSamsungPayChargeCreated(
-                            request?.url?.getQueryParameterFromUri(keyValueName).toString()
-                        )
-                    //  progressBar.visibility = GONE
-                }
-
-               if (request?.url.toString()
-                        .contains(SamsungPayStatusDelegate.onOrderCreated.name)
-                ) {
-                    SamsungPayDataConfiguration.getTapCardStatusListener()
-                        ?.onSamsungPayOrderCreated(
-                            request?.url?.getQueryParameter(keyValueName).toString()
-                        )
-                    //  progressBar.visibility = GONE
-                }
-                if (request?.url.toString().contains(SamsungPayStatusDelegate.onClick.name)) {
-                    // progressBar.visibility = VISIBLE
-                  //  isSamsungPayUrlIntercepted = false
-                    pair = Pair("", false)
-                    SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayClick()
-                    onSuccessCalled = false
-
+                // Stop the WebView from continuing to load this URL
+                webView?.post {
+                    webView.stopLoading()
+                    webView?.visibility = View.GONE
 
                 }
 
-
-                if (request?.url.toString().contains(SamsungPayStatusDelegate.onCancel.name)) {
-                    android.os.Handler(Looper.getMainLooper()).postDelayed(3000) {
-                        if (!onSuccessCalled) {
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayCancel()
-                        }
-
-
-                    }
-
-                    if (!(pair.first.isNotEmpty() and pair.second)) {
-                        dismissDialog()
-                    }
-                    // progressBar.visibility = GONE
-
-                }
-
-                if (request?.url.toString().contains(SamsungPayStatusDelegate.onError.name)) {
-                    android.os.Handler(Looper.getMainLooper()).postDelayed(3000) {
-                        if (!onSuccessCalled) {
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayError(
-                                    request?.url?.getQueryParameterFromUri(keyValueName).toString()
-                                )
-
-                        }
-
-                    }
-                    pair =
-                        Pair(request?.url?.getQueryParameterFromUri(keyValueName).toString(), true)
-                    closePayment()
-                    //  progressBar.visibility = GONE
-
-                }
-
-                if (request?.url.toString().contains(SamsungPayStatusDelegate.onSuccess.name)) {
-                    onSuccessCalled = true
-                    pair =
-                        Pair(request?.url?.getQueryParameterFromUri(keyValueName).toString(), true)
-                    when (iSAppInForeground) {
-
-                        true -> {
-                            closePayment()
-                            Log.e("success", "one")
-                        }
-
-                        false -> {}
-                    }
-                    //  progressBar.visibility = GONE
-
-                }
-
-                return true
-
-            }
-            // add below if statement to check if URL is Samsung Pay or Samsung App Store deep link
-            if (request?.url?.toString()?.startsWith(SAMSUNG_PAY_URL_PREFIX, ignoreCase = true) == true ||
-                request?.url?.toString()?.startsWith(SAMSUNG_APP_STORE_URL, ignoreCase = true) == true) {
                 try {
-                    val intent = Intent.parseUri(request.url.toString(), Intent.URI_INTENT_SCHEME)
+                    val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     context.startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
-                    e.printStackTrace()
-                    // Samsung Wallet app is not installed → open Samsung App Store
                     val installIntent = Intent.parseUri(
                         "samsungapps://ProductDetail/com.samsung.android.spay",
                         Intent.URI_INTENT_SCHEME
@@ -296,13 +205,111 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                     installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(installIntent)
                 }
-                // return true will cause that the URL will not be loaded in WebView
-                return true
+
+                return true // ensures WebView does not handle the URL further
             }
 
 
-            return false
+            /**
+             * 1️⃣ Handle Samsung Pay SDK callbacks
+             */
+          //  if(!tapUrlLoaded) {
 
+                if (url.startsWith(CardWebUrlPrefix, ignoreCase = true)) {
+
+                    when {
+                        url.contains(SamsungPayStatusDelegate.onReady.name) -> {
+                            SamsungPayDataConfiguration.getTapCardStatusListener()
+                                ?.onSamsungPayReady()
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onChargeCreated.name) -> {
+                            SamsungPayDataConfiguration.getTapCardStatusListener()
+                                ?.onSamsungPayChargeCreated(
+                                    request?.url?.getQueryParameterFromUri(keyValueName).toString()
+                                )
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onOrderCreated.name) -> {
+                            SamsungPayDataConfiguration.getTapCardStatusListener()
+                                ?.onSamsungPayOrderCreated(
+                                    request?.url?.getQueryParameter(keyValueName).toString()
+                                )
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onClick.name) -> {
+                            pair = Pair("", false)
+                            onSuccessCalled = false
+                            SamsungPayDataConfiguration.getTapCardStatusListener()
+                                ?.onSamsungPayClick()
+                            tapUrlLoaded = true
+                            return true
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onCancel.name) -> {
+
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                if (!onSuccessCalled) {
+                                    SamsungPayDataConfiguration.getTapCardStatusListener()
+                                        ?.onSamsungPayCancel()
+                                }
+                            }, 3000)
+                            webView?.post {
+                                webView.stopLoading()
+                                webView?.visibility = View.GONE
+                            }
+                            if (!(pair.first.isNotEmpty() && pair.second)) {
+                                dismissDialog()
+                            }
+
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onError.name) -> {
+
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                if (!onSuccessCalled) {
+                                    SamsungPayDataConfiguration.getTapCardStatusListener()
+                                        ?.onSamsungPayError(
+                                            request?.url?.getQueryParameterFromUri(keyValueName)
+                                                .toString()
+                                        )
+                                }
+                            }, 3000)
+
+                            pair = Pair(
+                                request?.url?.getQueryParameterFromUri(keyValueName).toString(),
+                                true
+                            )
+
+                            closePayment()
+                        }
+
+                        url.contains(SamsungPayStatusDelegate.onSuccess.name) -> {
+
+                            onSuccessCalled = true
+
+                            pair = Pair(
+                                request?.url?.getQueryParameterFromUri(keyValueName).toString(),
+                                true
+                            )
+
+                            if (iSAppInForeground) {
+                                closePayment()
+                                Log.e("success", "one")
+                            }
+                        }
+                    }
+
+                    return true
+                }
+          //  }
+
+
+
+
+
+
+            return false
         }
 
         override fun onPageFinished(view: WebView, url: String) {
@@ -311,14 +318,14 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         }
 
 
-        override fun shouldInterceptRequest(
+   /*     override fun shouldInterceptRequest(
             view: WebView?,
             request: WebResourceRequest?
         ): WebResourceResponse? {
             Log.e("intercepted", request?.url.toString())
 
 
-            when (request?.url?.toString()?.contains(samsungPayCheckoutUrl)
+           when (request?.url?.toString()?.contains(samsungPayCheckoutUrl)
                 ?.and((!isSamsungPayUrlIntercepted))) {
 
                 true -> {
@@ -337,9 +344,9 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                         linearLayout.layoutParams = params
                         linearLayout.orientation = VERTICAL
 
-                        /**
+                        *//**
                          * onBackPressed in Dialog
-                         */
+                         *//*
                         dialog.setOnKeyListener { view, keyCode, keyEvent ->
                             if (keyEvent.action == KeyEvent.ACTION_UP && keyCode == KeyEvent.KEYCODE_BACK) {
                                 dismissDialog()
@@ -361,11 +368,13 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                     isSamsungPayUrlIntercepted = true
                 }
 
-                else -> {}
+                else -> {
+
+                }
             }
 
             return super.shouldInterceptRequest(view, request)
-        }
+        }*/
 
 
         override fun onReceivedError(
@@ -421,58 +430,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
     }
 
-    /*private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>) {
-        try {
-            val baseURL = configApiUrl
-            // val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
-            val builder: OkHttpClient.Builder = OkHttpClient().newBuilder()
-            val interceptor = HttpLoggingInterceptor()
-            interceptor.setLevel(HttpLoggingInterceptor.Level.BODY)
-            builder.addInterceptor(interceptor)
 
-            val body = (configuraton as Map<*, *>?)?.let { JSONObject(it).toString().toRequestBody("application/json".toMediaTypeOrNull()) }
-            val okHttpClient: OkHttpClient = builder.build()
-            val request: Request = Request.Builder()
-                .url(baseURL)
-                .method("POST", body)
-                .addHeader("Content-Type", "application/json")
-                .build()
-            okHttpClient.newCall(request).enqueue(object : Callback {
-                override fun onResponse(call: Call, response: Response) {
-                    try {
-                        var responseBody: JSONObject? =
-                            response.body?.string()?.let { JSONObject(it) } // toString() is not the response body, it is a debug representation of the response body
-
-                        if(!responseBody.toString().contains("errors")){
-                            var redirectURL = responseBody?.getString("redirect_url")
-                            if (redirectURL != null) {
-                                // knetWebView.loadUrl(redirectURL)
-                                urlToBeloaded = redirectURL
-                                Handler(Looper.getMainLooper()).post {
-                                    cardWebview.loadUrl(redirectURL)
-
-                                }
-                            }
-                        }else{
-
-
-                        }
-
-                    } catch (ex: JSONException) {
-                        throw RuntimeException(ex)
-                    } catch (ex: IOException) {
-                        throw RuntimeException(ex)
-                    }
-
-                }
-
-                override fun onFailure(call: Call, e: IOException) {}
-            })
-        } catch (e: Exception) {
-            throw RuntimeException(e)
-        }
-
-    }*/
     @SuppressLint("RestrictedApi")
     private fun callConfigAPI(configuraton: java.util.HashMap<String, Any>, isTestMode: Boolean = true) {
      //   val baseURL = "https://mw-sdk.beta.tap.company/v2/button/config"
