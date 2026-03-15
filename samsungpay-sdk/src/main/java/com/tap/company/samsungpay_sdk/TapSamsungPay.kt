@@ -190,6 +190,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
                 try {
                     val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                    samsungCheckoutStarted= true
                     context.startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
                     val installIntent = Intent.parseUri(
@@ -402,7 +403,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         iSAppInForeground = true
         Log.e("applifeCycle", "onEnterForeground")
         //  closePayment()
-        if (!onSuccessCalled) {
+        if (!onSuccessCalled && samsungCheckoutStarted) {
             // Sheet was likely canceled
             samsungCheckoutStarted = false
             SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
