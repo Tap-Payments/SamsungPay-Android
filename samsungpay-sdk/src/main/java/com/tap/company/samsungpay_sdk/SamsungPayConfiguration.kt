@@ -200,7 +200,6 @@ class SamsungPayConfiguration {
                 )
                 tapMapConfiguration.put("platform","mobile")
                 SamsungPayDataConfiguration.addTapSamsungPayStatusDelegate(tapSamsungPayStatusDelegate)
-                //tapCardInputViewWeb?.init(CardConfiguraton.MapConfigruation)
                 tapCardInputViewWeb?.init(tapMapConfiguration)
 
             }

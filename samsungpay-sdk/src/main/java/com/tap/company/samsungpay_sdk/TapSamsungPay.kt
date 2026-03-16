@@ -96,7 +96,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
            // mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
         }
-        cardWebview.setBackgroundColor(Color.TRANSPARENT)
+        cardWebview.setBackgroundColor(Color.WHITE)
         cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
         cardWebview.webViewClient = MyWebViewClient()
        // cardWebview.webChromeClient = WebChromeClient()
@@ -239,6 +239,9 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                             SamsungPayDataConfiguration.getTapCardStatusListener()
                                 ?.onSamsungPayClick()
                             tapUrlLoaded = true
+                            cardWebview.post {
+                                cardWebview?.visibility = View.GONE
+                            }
                             return true
                         }
 
@@ -406,10 +409,9 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
             Log.e("SamsungPay", "Sheet was closed/canceled")
             init(cardConfiguraton)
-            cardWebview?.post {
+            cardWebview?.postDelayed({
                 cardWebview?.visibility = View.VISIBLE
-
-            }
+            }, 1800) //
           /*  val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             launchIntent?.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             context.startActivity(launchIntent)*/
