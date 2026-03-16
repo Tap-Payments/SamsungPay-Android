@@ -17,7 +17,6 @@
             android:id="@+id/webview"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-
             android:scrollbars="none"
             android:layout_gravity="center"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -25,14 +24,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" >
 
-        <ProgressBar
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_margin="15dp"
-            android:indeterminate="true"
-            android:indeterminateTint="@color/darker_gray"
-            android:visibility="gone"
-            android:id="@+id/progress_circular"/>
         </WebView>
 
 </LinearLayout>

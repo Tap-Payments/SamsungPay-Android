@@ -7,6 +7,8 @@ import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -86,17 +88,16 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     private fun initWebView() {
         cardWebview = findViewById(R.id.webview)
         webViewFrame = findViewById(R.id.webViewFrame)
-        progressBar = findViewById(R.id.progress_circular)
+       // progressBar = findViewById(R.id.progress_circular)
         with(cardWebview.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
            // cacheMode = WebSettings.LOAD_NO_CACHE
            // mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
-
         }
-        //cardWebview.setBackgroundColor(Color.TRANSPARENT)
-        //cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
+        cardWebview.setBackgroundColor(Color.TRANSPARENT)
+        cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
         cardWebview.webViewClient = MyWebViewClient()
        // cardWebview.webChromeClient = WebChromeClient()
 
@@ -306,10 +307,6 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             return false
         }
 
-        override fun onPageFinished(view: WebView, url: String) {
-            super.onPageFinished(view, url)
-
-        }
 
 
    /*     override fun shouldInterceptRequest(
