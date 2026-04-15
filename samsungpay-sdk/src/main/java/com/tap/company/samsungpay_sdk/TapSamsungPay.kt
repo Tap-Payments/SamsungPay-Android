@@ -466,7 +466,7 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             put(
                 "mdn",
                 CryptoUtil.encryptJsonString(
-                    "tap.BenefitPayExampleApp",
+                    context.packageName.toString(),
                     encryptionKey
                 )
             )
