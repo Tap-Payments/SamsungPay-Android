@@ -75,7 +75,7 @@ In your app-level `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'com.github.Tap-Payments:SamsungPay-Android:1.0.0'
+    implementation 'com.github.Tap-Payments:SamsungPay-Android:1.0.9'
    
 }
 ```
