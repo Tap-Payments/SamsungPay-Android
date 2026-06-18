@@ -89,7 +89,8 @@ class SamsungPayConfiguration {
                 prodEncKey = tapSDKConfigUrlResponse.prodEncKey
                 urlWebStarter = tapSDKConfigUrlResponse.baseURL
                 interceptedURL = tapSDKConfigUrlResponse.interceptedURL
-                interceptedStatus = tapSDKConfigUrlResponse.interceptedStatus
+              //  interceptedStatus = tapSDKConfigUrlResponse.interceptedStatus
+                interceptedStatus = "CANCELED" //todo remove once cdn updated
 
                 startSDKWithConfigs(
                     tapMapConfiguration,
