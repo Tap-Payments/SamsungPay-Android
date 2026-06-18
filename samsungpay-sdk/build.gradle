@@ -72,7 +72,7 @@ afterEvaluate {
 
                 groupId = "com.github.Tap-Payments"
                 artifactId = "SamsungPay-Android"
-                version = "1.0.8"
+                version = "1.0.9"
 
                 pom.withXml {
                     def dependenciesNode = asNode().appendNode('dependencies')
