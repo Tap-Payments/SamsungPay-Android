@@ -4,4 +4,6 @@ data class TapSamsungSDKConfigUrlResponse(
     val baseURL: String,
     val testEncKey: String,
     val prodEncKey: String,
+    val interceptedURL: String,
+    val interceptedStatus: String,
 )

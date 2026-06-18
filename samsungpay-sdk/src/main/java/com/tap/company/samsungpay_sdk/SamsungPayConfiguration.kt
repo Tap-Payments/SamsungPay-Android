@@ -27,6 +27,8 @@ class SamsungPayConfiguration {
         private val tapSDKConfigsUrl = retrofit.create(ApiServiceBenefit.TapSDKConfigUrls::class.java)
         private var testEncKey: String? = null
         private var prodEncKey: String? = null
+         var interceptedURL: String? = null
+         var interceptedStatus: String? = null
         private var dynamicBaseUrlResponse: String? = null
        var configApiUrl : String = "https://mw-sdk.tap.company/v2/button/config"
         fun configureWithTapSamsungPayDictionaryConfiguration(
@@ -86,6 +88,8 @@ class SamsungPayConfiguration {
                 testEncKey = tapSDKConfigUrlResponse.testEncKey
                 prodEncKey = tapSDKConfigUrlResponse.prodEncKey
                 urlWebStarter = tapSDKConfigUrlResponse.baseURL
+                interceptedURL = tapSDKConfigUrlResponse.interceptedURL
+                interceptedStatus = tapSDKConfigUrlResponse.interceptedStatus
 
                 startSDKWithConfigs(
                     tapMapConfiguration,

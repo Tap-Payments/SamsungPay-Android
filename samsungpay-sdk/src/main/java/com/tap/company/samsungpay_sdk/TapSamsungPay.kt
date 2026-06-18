@@ -1,7 +1,6 @@
 package com.tap.company.samsungpay_sdk
 
-//import company.tap.tapuilibrary.themekit.ThemeManager
-//import company.tap.tapuilibrary.uikit.atoms.*
+
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.ActivityNotFoundException
@@ -17,13 +16,19 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import androidx.annotation.RequiresApi
+import com.tap.company.samsungpay_sdk.SamsungPayConfiguration.Companion.interceptedStatus
+import com.tap.company.samsungpay_sdk.SamsungPayConfiguration.Companion.interceptedURL
 import company.tap.tapbenefitpay.getQueryParameterFromUri
 import company.tap.tapbenefitpay.open.web_wrapper.CardWebUrlPrefix
 import company.tap.tapbenefitpay.open.web_wrapper.keyValueName
@@ -55,11 +60,74 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     lateinit var cardConfiguraton: java.util.HashMap<String, Any>
     private var samsungCheckoutStarted = false
     private var tapUrlLoaded = false
+    private var isSamsungResponseRequest = false
+
+    // True once the WebView delivers ANY authoritative result (success/charge/order/error).
+    // Used to distinguish a real cancel from a payment whose result simply hasn't
+    // arrived through the WebView yet when the user returns to the app.
+    private var paymentResultReceived = false
+    private val cancelHandler = Handler(Looper.getMainLooper())
+    private var pendingCancelRunnable: Runnable? = null
     companion object {
         lateinit var cardWebview: WebView
         // lateinit var cardConfiguraton: CardConfiguraton
         private const val SAMSUNG_PAY_URL_PREFIX: String = "samsungpay"
         private const val SAMSUNG_APP_STORE_URL: String = "samsungapps://ProductDetail/com.samsung.android.spay"
+        // How long to wait after returning from Samsung Wallet for the WebView to deliver a
+        // result before treating the return as a user cancel.
+        private const val CANCEL_GRACE_PERIOD_MS: Long = 3000
+
+        /**
+         * Injected at document-start. Wraps fetch + XMLHttpRequest so every API call made by
+         * the page is reported back to native with its request body, response body, status,
+         * method and url. This is the only reliable way to read POST bodies from a WebView.
+         */
+        private const val NETWORK_CAPTURE_JS: String = """
+            (function() {
+              if (window.__tapNetPatched) return;
+              window.__tapNetPatched = true;
+              function report(d) {
+                try { AndroidNetworkLogger.onNetworkCall(JSON.stringify(d)); } catch (e) {}
+              }
+              // ----- fetch -----
+              var origFetch = window.fetch;
+              if (origFetch) {
+                window.fetch = function(input, init) {
+                  var url = (typeof input === 'string') ? input : (input && input.url);
+                  var method = (init && init.method) || (input && input.method) || 'GET';
+                  var reqBody = (init && init.body) ? String(init.body) : null;
+                  return origFetch.apply(this, arguments).then(function(resp) {
+                    try {
+                      resp.clone().text().then(function(text) {
+                        report({ source:'fetch', url:url, method:method, requestBody:reqBody, status:resp.status, responseBody:text });
+                      });
+                    } catch (e) {
+                      report({ source:'fetch', url:url, method:method, requestBody:reqBody, status:resp.status });
+                    }
+                    return resp;
+                  });
+                };
+              }
+              // ----- XMLHttpRequest -----
+              var origOpen = XMLHttpRequest.prototype.open;
+              var origSend = XMLHttpRequest.prototype.send;
+              XMLHttpRequest.prototype.open = function(method, url) {
+                this.__tap = { method: method, url: url };
+                return origOpen.apply(this, arguments);
+              };
+              XMLHttpRequest.prototype.send = function(body) {
+                var self = this;
+                var info = this.__tap || {};
+                info.requestBody = body ? String(body) : null;
+                this.addEventListener('load', function() {
+                  var respText = '';
+                  try { respText = self.responseText; } catch (e) {}
+                  report({ source:'xhr', url:info.url, method:info.method, requestBody:info.requestBody, status:self.status, responseBody:respText });
+                });
+                return origSend.apply(this, arguments);
+              };
+            })();
+        """
     }
 
     /**
@@ -88,18 +156,37 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     private fun initWebView() {
         cardWebview = findViewById(R.id.webview)
         webViewFrame = findViewById(R.id.webViewFrame)
-       // progressBar = findViewById(R.id.progress_circular)
+        val isDebuggable =
+            (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        // Enable chrome://inspect for this WebView, but only when the host app is
+        // debuggable so it never ships enabled in a release build.
+        if (isDebuggable) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+        // progressBar = findViewById(R.id.progress_circular)
         with(cardWebview.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
-           // cacheMode = WebSettings.LOAD_NO_CACHE
-           // mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // cacheMode = WebSettings.LOAD_NO_CACHE
+            // mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
 
         }
         cardWebview.setBackgroundColor(Color.WHITE)
         cardWebview.setLayerType(LAYER_TYPE_SOFTWARE, null)
         cardWebview.webViewClient = MyWebViewClient()
-       // cardWebview.webChromeClient = WebChromeClient()
+        // cardWebview.webChromeClient = WebChromeClient()
+
+        // --- Network capture (request + response bodies) ---
+        // WebResourceRequest in shouldInterceptRequest does NOT expose the POST body,
+        // so we monkey-patch fetch/XHR in JS and bridge the data back through this interface.
+        // SECURITY: payment bodies can contain card data — only capture/log in debug builds.
+        if (isDebuggable) {
+            cardWebview.addJavascriptInterface(NetworkCaptureBridge(), "AndroidNetworkLogger")
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                // Injected before the page's own scripts run, so no early calls are missed.
+                WebViewCompat.addDocumentStartJavaScript(cardWebview, NETWORK_CAPTURE_JS, setOf("*"))
+            }
+        }
 
     }
 
@@ -192,6 +279,8 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                 try {
                     val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
                     samsungCheckoutStarted= true
+                    paymentResultReceived = false
+                    onSuccessCalled = false
                     context.startActivity(intent)
                 } catch (e: ActivityNotFoundException) {
                     val installIntent = Intent.parseUri(
@@ -209,98 +298,101 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
             /**
              * 1️⃣ Handle Samsung Pay SDK callbacks
              */
-          //  if(!tapUrlLoaded) {
+            //  if(!tapUrlLoaded) {
 
-                if (url.startsWith(CardWebUrlPrefix, ignoreCase = true)) {
+            if (url.startsWith(CardWebUrlPrefix, ignoreCase = true)) {
 
-                    when {
-                        url.contains(SamsungPayStatusDelegate.onReady.name) -> {
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayReady()
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onChargeCreated.name) -> {
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayChargeCreated(
-                                    request?.url?.getQueryParameterFromUri(keyValueName).toString()
-                                )
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onOrderCreated.name) -> {
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayOrderCreated(
-                                    request?.url?.getQueryParameter(keyValueName).toString()
-                                )
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onClick.name) -> {
-                            pair = Pair("", false)
-                            onSuccessCalled = false
-                            SamsungPayDataConfiguration.getTapCardStatusListener()
-                                ?.onSamsungPayClick()
-                            tapUrlLoaded = true
-                            cardWebview.post {
-                                cardWebview?.visibility = View.GONE
-                            }
-                            return true
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onCancel.name) -> {
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                if (!onSuccessCalled) {
-                                    SamsungPayDataConfiguration.getTapCardStatusListener()
-                                        ?.onSamsungPayCancel()
-                                }
-                            }, 3000)
-                            webView?.post {
-                                webView.stopLoading()
-                                webView?.visibility = View.GONE
-                            }
-                            if (!(pair.first.isNotEmpty() && pair.second)) {
-                                dismissDialog()
-                            }
-
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onError.name) -> {
-
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                if (!onSuccessCalled) {
-                                    SamsungPayDataConfiguration.getTapCardStatusListener()
-                                        ?.onSamsungPayError(
-                                            request?.url?.getQueryParameterFromUri(keyValueName)
-                                                .toString()
-                                        )
-                                }
-                            }, 3000)
-
-                            pair = Pair(
-                                request?.url?.getQueryParameterFromUri(keyValueName).toString(),
-                                true
-                            )
-
-                            closePayment()
-                        }
-
-                        url.contains(SamsungPayStatusDelegate.onSuccess.name) -> {
-
-                            onSuccessCalled = true
-
-                            pair = Pair(
-                                request?.url?.getQueryParameterFromUri(keyValueName).toString(),
-                                true
-                            )
-
-                            if (iSAppInForeground) {
-                                closePayment()
-                                Log.e("success", "one")
-                            }
-                        }
+                when {
+                    url.contains(SamsungPayStatusDelegate.onReady.name) -> {
+                        SamsungPayDataConfiguration.getTapCardStatusListener()
+                            ?.onSamsungPayReady()
                     }
 
-                    return true
+                    url.contains(SamsungPayStatusDelegate.onChargeCreated.name) -> {
+                        markPaymentResultReceived()
+                        SamsungPayDataConfiguration.getTapCardStatusListener()
+                            ?.onSamsungPayChargeCreated(
+                                request?.url?.getQueryParameterFromUri(keyValueName).toString()
+                            )
+                    }
+
+                    url.contains(SamsungPayStatusDelegate.onOrderCreated.name) -> {
+                        markPaymentResultReceived()
+                        SamsungPayDataConfiguration.getTapCardStatusListener()
+                            ?.onSamsungPayOrderCreated(
+                                request?.url?.getQueryParameter(keyValueName).toString()
+                            )
+                    }
+
+                    url.contains(SamsungPayStatusDelegate.onClick.name) -> {
+                        pair = Pair("", false)
+                        onSuccessCalled = false
+                        SamsungPayDataConfiguration.getTapCardStatusListener()
+                            ?.onSamsungPayClick()
+                        tapUrlLoaded = true
+                        cardWebview.post {
+                            cardWebview?.visibility = View.GONE
+                        }
+                        return true
+                    }
+
+                    url.contains(SamsungPayStatusDelegate.onCancel.name) -> {
+                        markPaymentResultReceived()
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (!onSuccessCalled) {
+                                SamsungPayDataConfiguration.getTapCardStatusListener()
+                                    ?.onSamsungPayCancel()
+                            }
+                        }, 3000)
+                        webView?.post {
+                            webView.stopLoading()
+                            webView?.visibility = View.GONE
+                        }
+                        if (!(pair.first.isNotEmpty() && pair.second)) {
+                            dismissDialog()
+                        }
+
+                    }
+
+                    url.contains(SamsungPayStatusDelegate.onError.name) -> {
+                        markPaymentResultReceived()
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (!onSuccessCalled) {
+                                SamsungPayDataConfiguration.getTapCardStatusListener()
+                                    ?.onSamsungPayError(
+                                        request?.url?.getQueryParameterFromUri(keyValueName)
+                                            .toString()
+                                    )
+                            }
+                        }, 3000)
+
+                        pair = Pair(
+                            request?.url?.getQueryParameterFromUri(keyValueName).toString(),
+                            true
+                        )
+
+                        closePayment()
+                    }
+
+                    url.contains(SamsungPayStatusDelegate.onSuccess.name) -> {
+                        markPaymentResultReceived()
+                        onSuccessCalled = true
+
+                        pair = Pair(
+                            request?.url?.getQueryParameterFromUri(keyValueName).toString(),
+                            true
+                        )
+
+                        if (iSAppInForeground) {
+                            closePayment()
+                            Log.e("success", "one")
+                        }
+                    }
                 }
-          //  }
+
+                return true
+            }
+            //  }
 
 
 
@@ -312,35 +404,35 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
 
 
 
-   /*     override fun shouldInterceptRequest(
-            view: WebView?,
-            request: WebResourceRequest?
-        ): WebResourceResponse? {
-            Log.e("intercepted", request?.url.toString())
+        /*     override fun shouldInterceptRequest(
+                 view: WebView?,
+                 request: WebResourceRequest?
+             ): WebResourceResponse? {
+                 Log.e("intercepted", request?.url.toString())
 
 
-           when (request?.url?.toString()?.contains(samsungPayCheckoutUrl)
-                ?.and((!isSamsungPayUrlIntercepted))) {
+                when (request?.url?.toString()?.contains(samsungPayCheckoutUrl)
+                     ?.and((!isSamsungPayUrlIntercepted))) {
 
-                true -> {
-                    view?.post {
-                        (webViewFrame as ViewGroup).removeView(cardWebview)
+                     true -> {
+                         view?.post {
+                             (webViewFrame as ViewGroup).removeView(cardWebview)
 
 
-                        dialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
-                        //Create LinearLayout Dynamically
-                        linearLayout = LinearLayout(context)
-                        //Setup Layout Attributes
-                        val params = LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                        linearLayout.layoutParams = params
-                        linearLayout.orientation = VERTICAL
+                             dialog = Dialog(context, android.R.style.Theme_Translucent_NoTitleBar)
+                             //Create LinearLayout Dynamically
+                             linearLayout = LinearLayout(context)
+                             //Setup Layout Attributes
+                             val params = LayoutParams(
+                                 ViewGroup.LayoutParams.MATCH_PARENT,
+                                 ViewGroup.LayoutParams.MATCH_PARENT
+                             )
+                             linearLayout.layoutParams = params
+                             linearLayout.orientation = VERTICAL
 
-                        *//**
-                         * onBackPressed in Dialog
-                         *//*
+                             *//**
+         * onBackPressed in Dialog
+         *//*
                         dialog.setOnKeyListener { view, keyCode, keyEvent ->
                             if (keyEvent.action == KeyEvent.ACTION_UP && keyCode == KeyEvent.KEYCODE_BACK) {
                                 dismissDialog()
@@ -371,6 +463,45 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         }*/
 
 
+        /**
+         * Intercepts every resource the WebView requests. NOTE: WebResourceRequest does
+         * NOT expose the POST body — that's why request/response bodies are captured via
+         * NETWORK_CAPTURE_JS instead. This override only sees url, method and headers.
+         * Returning null lets the WebView load the request normally.
+         */
+        override fun shouldInterceptRequest(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): WebResourceResponse? {
+
+            request?.let {
+
+                val requestUrl = it.url.toString()
+
+                Log.e(
+                    "WebViewIntercept",
+                    "[${it.method}] $requestUrl  headers=${it.requestHeaders}"
+                )
+
+                if (!requestUrl.isNullOrBlank() &&
+                    interceptedURL?.let { target ->
+                        requestUrl.contains(target, ignoreCase = true)
+                    } == true
+                ) {
+
+                    Log.i(
+                        "SamsungPay",
+                        "Matched intercepted URL: $requestUrl"
+                    )
+
+                    // Optional: save flag for NetworkCaptureBridge
+                    isSamsungResponseRequest = true
+                }
+            }
+
+            return super.shouldInterceptRequest(view, request)
+        }
+
         override fun onReceivedError(
             view: WebView,
             request: WebResourceRequest,
@@ -389,6 +520,74 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     }
 
 
+    /**
+     * Receives every fetch / XHR call captured by NETWORK_CAPTURE_JS, including the
+     * request and response bodies. Runs on a background (JS bridge) thread — do not
+     * touch the UI here without posting to the main thread.
+     *
+     * The JSON payload has: source ("fetch"|"xhr"), url, method, requestBody, status, responseBody.
+     */
+    inner class NetworkCaptureBridge {
+        @JavascriptInterface
+        fun onNetworkCall(json: String) {
+            try {
+                val obj = JSONObject(json)
+                val url = obj.optString("url")
+                val method = obj.optString("method")
+                val status = obj.optInt("status", -1)
+                val requestBody = obj.optString("requestBody")
+                val responseBody = obj.optString("responseBody")
+
+                Log.e("WebViewNetwork", "[$method] $url -> $status")
+
+                Log.e("WebViewNetwork", "  requestBody: $requestBody")
+                Log.e("WebViewNetwork", "  responseBody: $responseBody")
+
+                println("interceptedURL is"+interceptedURL)
+                if (isSamsungResponseRequest) {
+
+                    // Handle Samsung Pay cancellation
+                    if (!responseBody.isNullOrBlank()) {
+                        try {
+                            val responseJson = JSONObject(responseBody)
+                            val paymentStatus = responseJson.optString("status")
+                            println("interceptedStatus here"+interceptedStatus)
+                            if (interceptedStatus.equals(paymentStatus, ignoreCase = true)) {
+
+                                Log.i("SamsungPay", "Payment cancelled by user")
+                                isSamsungResponseRequest = false
+                                Handler(Looper.getMainLooper()).post {
+
+                                    SamsungPayDataConfiguration
+                                        .getTapCardStatusListener()
+                                        ?.onSamsungPayCancel()
+
+                                    samsungCheckoutStarted = false
+                                    onSuccessCalled = false
+                                    iSAppInForeground = true
+
+                                    init(cardConfiguraton)
+
+                                    cardWebview.visibility = View.VISIBLE
+                                }
+
+                                return
+                            }
+                        } catch (e: Exception) {
+                            Log.e("SamsungPay", "Failed to parse responseBody: ${e.message}")
+                        }
+                    }
+                }
+
+
+                // Hook point: forward to your own listener/analytics if needed
+
+            } catch (e: Exception) {
+                Log.e("WebViewNetwork", "Failed to parse captured call: ${e.message}")
+            }
+        }
+    }
+
     private fun dismissDialog() {
         if (::dialog.isInitialized) {
             linearLayout.removeView(cardWebview)
@@ -399,24 +598,49 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         }
     }
 
+    /**
+     * Called by any authoritative WebView result (success / charge / order / error / cancel).
+     * Records that we got a real result and cancels any pending "assume cancel" runnable
+     * that onEnterForeground may have scheduled.
+     */
+    private fun markPaymentResultReceived() {
+        paymentResultReceived = true
+        pendingCancelRunnable?.let { cancelHandler.removeCallbacks(it) }
+        pendingCancelRunnable = null
+    }
+
     override fun onEnterForeground() {
         iSAppInForeground = true
         Log.e("applifeCycle", "onEnterForeground")
-        //  closePayment()
-        if (!onSuccessCalled && samsungCheckoutStarted) {
-            // Sheet was likely canceled
-            samsungCheckoutStarted = false
-            SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
-            Log.e("SamsungPay", "Sheet was closed/canceled")
-            init(cardConfiguraton)
-            cardWebview?.postDelayed({
-                cardWebview?.visibility = View.VISIBLE
-            }, 1800) //
-          /*  val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            launchIntent?.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            context.startActivity(launchIntent)*/
-        }
 
+        // The user came back from the Samsung Wallet app. We do NOT yet know whether they
+        // paid or cancelled — Samsung Wallet never tells us; only the WebView redirect does.
+        // So instead of firing cancel immediately (which races with a real onSuccess that
+        // hasn't arrived through the WebView yet), we wait a grace period. If a real result
+        // (success/charge/order/error) arrives in the meantime, markPaymentResultReceived()
+        // cancels this runnable. If the grace period elapses with no result, it was a cancel.
+//        if (samsungCheckoutStarted && !onSuccessCalled && !paymentResultReceived) {
+//
+//            pendingCancelRunnable?.let { cancelHandler.removeCallbacks(it) }
+//
+//            val runnable = Runnable {
+//                pendingCancelRunnable = null
+//                if (!onSuccessCalled && !paymentResultReceived) {
+//                    // No result arrived → genuine cancel.
+//                    samsungCheckoutStarted = false
+////                    SamsungPayDataConfiguration.getTapCardStatusListener()?.onSamsungPayCancel()
+//                    Log.e("SamsungPay", "Sheet was closed/canceled (no result after grace period)")
+//                    init(cardConfiguraton)
+//                    cardWebview?.postDelayed({
+//                        cardWebview?.visibility = View.VISIBLE
+//                    }, 1800)
+//                } else {
+//                    Log.e("SamsungPay", "Foreground cancel suppressed — payment result was received")
+//                }
+//            }
+//            pendingCancelRunnable = runnable
+//            cancelHandler.postDelayed(runnable, CANCEL_GRACE_PERIOD_MS)
+//        }
     }
 
     private fun closePayment() {
