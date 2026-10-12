@@ -179,13 +179,14 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
         // --- Network capture (request + response bodies) ---
         // WebResourceRequest in shouldInterceptRequest does NOT expose the POST body,
         // so we monkey-patch fetch/XHR in JS and bridge the data back through this interface.
-        // SECURITY: payment bodies can contain card data — only capture/log in debug builds.
-        if (isDebuggable) {
-            cardWebview.addJavascriptInterface(NetworkCaptureBridge(), "AndroidNetworkLogger")
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                // Injected before the page's own scripts run, so no early calls are missed.
-                WebViewCompat.addDocumentStartJavaScript(cardWebview, NETWORK_CAPTURE_JS, setOf("*"))
-            }
+        // The bridge must be installed in release builds too: Samsung Wallet never reports a
+        // cancel back to the app, so the cancel is detected from the polled transaction
+        // response's status (see NetworkCaptureBridge). SECURITY: payment bodies can contain
+        // card data, so they are only LOGGED in debug builds.
+        cardWebview.addJavascriptInterface(NetworkCaptureBridge(), "AndroidNetworkLogger")
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            // Injected before the page's own scripts run, so no early calls are missed.
+            WebViewCompat.addDocumentStartJavaScript(cardWebview, NETWORK_CAPTURE_JS, setOf("*"))
         }
 
     }
@@ -520,6 +521,9 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
     }
 
 
+    private fun isDebuggable(): Boolean =
+        (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
     /**
      * Receives every fetch / XHR call captured by NETWORK_CAPTURE_JS, including the
      * request and response bodies. Runs on a background (JS bridge) thread — do not
@@ -538,12 +542,12 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                 val requestBody = obj.optString("requestBody")
                 val responseBody = obj.optString("responseBody")
 
-                Log.e("WebViewNetwork", "[$method] $url -> $status")
+                if (isDebuggable()) {
+                    Log.e("WebViewNetwork", "[$method] $url -> $status")
+                    Log.e("WebViewNetwork", "  requestBody: $requestBody")
+                    Log.e("WebViewNetwork", "  responseBody: $responseBody")
+                }
 
-                Log.e("WebViewNetwork", "  requestBody: $requestBody")
-                Log.e("WebViewNetwork", "  responseBody: $responseBody")
-
-                println("interceptedURL is"+interceptedURL)
                 if (isSamsungResponseRequest) {
 
                     // Handle Samsung Pay cancellation
@@ -551,7 +555,6 @@ class TapSamsungPay : LinearLayout, ApplicationLifecycle {
                         try {
                             val responseJson = JSONObject(responseBody)
                             val paymentStatus = responseJson.optString("status")
-                            println("interceptedStatus here"+interceptedStatus)
                             if (interceptedStatus.equals(paymentStatus, ignoreCase = true)) {
 
                                 Log.i("SamsungPay", "Payment cancelled by user")
